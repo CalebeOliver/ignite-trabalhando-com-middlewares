@@ -10,19 +10,60 @@ app.use(cors());
 const users = [];
 
 function checksExistsUserAccount(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers;
+
+  const user = users.find(item => item.username === username)
+
+  if (user) {
+    request.user = user;
+    return next();
+  }
+
+  return response.status(404);
 }
 
 function checksCreateTodosUserAvailability(request, response, next) {
-  // Complete aqui
+  const { user } = request;
+
+  if (user.pro || user.todos.length < 10) {
+    return next();
+  }
+
+  return response.status(403);
+
 }
 
 function checksTodoExists(request, response, next) {
-  // Complete aqui
+  const { username } = request.headers;
+  const { id } = request.params;
+
+  const user = users.find(item => item.username === username);
+
+  if (user) {
+    const idIsAValidUUID = validate(id);
+    if (idIsAValidUUID) {
+      const todo = user.todos.find(item => item.id === id);
+      if (todo) {
+        request.user = user;
+        request.todo = todo;
+        return next();
+      }
+      return response.status(404).json({ error: 'todo was not found' });
+    }
+    return response.status(400).json({ error: 'the id is not a valid UUID' });
+  }
+  return response.status(404).json({ error: 'user account was not found' });
 }
 
 function findUserById(request, response, next) {
-  // Complete aqui
+  const { id } = request.params;
+  const user = users.find(item => item.id === id)
+
+  if (user) {
+    request.user = user;
+    return next();
+  }
+  return response.status(404);
 }
 
 app.post('/users', (request, response) => {
@@ -90,10 +131,15 @@ app.post('/todos', checksExistsUserAccount, checksCreateTodosUserAvailability, (
 
 app.put('/todos/:id', checksTodoExists, (request, response) => {
   const { title, deadline } = request.body;
-  const { todo } = request;
+  const { user, todo } = request;
 
   todo.title = title;
   todo.deadline = new Date(deadline);
+
+  const userIndex = users.findIndex(item => item.id === user.id);
+  const todoIndex = user.todos.findIndex(item => item.id === todo.id);
+
+  users[userIndex].todos[todoIndex] = todo;
 
   return response.json(todo);
 });
